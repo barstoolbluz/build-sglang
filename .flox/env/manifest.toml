@@ -1,0 +1,48 @@
+## Flox Environment Manifest -----------------------------------------
+##
+##   _Everything_ you need to know about the _manifest_ is here:
+##
+##   https://flox.dev/docs/reference/command-reference/manifest.toml/
+##
+## -------------------------------------------------------------------
+# Flox manifest version managed by Flox CLI
+version = 1
+
+
+## Install Packages --------------------------------------------------
+[install]
+git.pkg-path = "git"
+
+
+## Environment Variables ---------------------------------------------
+[vars]
+
+
+## Activation Hook ---------------------------------------------------
+[hook]
+
+
+## Profile script ----------------------------------------------------
+[profile]
+
+
+## Services ---------------------------------------------------------
+[services]
+
+
+## Include ----------------------------------------------------------
+[include]
+
+
+## Build and publish your own packages ------------------------------
+##  $ flox build sglang-python312-cuda12_8-sm90-avx2
+##  $ flox publish sglang-python312-cuda12_8-sm90-avx2
+## ------------------------------------------------------------------
+[build]
+
+
+## Other Environment Options -----------------------------------------
+[options]
+systems = [
+  "x86_64-linux",
+]
