@@ -150,7 +150,7 @@ SGLang builds use a **wheel-composition** approach — unlike vLLM which builds 
 
 - **`packageOverrides`** — `python312.override { packageOverrides }` creates a custom Python package set where `torch` is built from source with SM-specific GPU targeting and CPU ISA flags
 - **Pre-built wheels + `autoPatchelfHook`** — sgl-kernel, FlashInfer jit-cache, and xgrammar ship as pre-compiled wheels; `autoPatchelfHook` patches their ELF binaries against the custom torch and CUDA runtime libraries
-- **`pythonRemoveDeps`** — SGLang declares ~60 `Requires-Dist` entries, many of which are not in nixpkgs (apache-tvm-ffi, nvidia-cutlass-dsl, quack-kernels, openai-harmony, etc.); all dependency metadata is stripped and needed deps are explicitly provided via `propagatedBuildInputs`
+- **`pythonRemoveDeps`** — SGLang declares ~60 `Requires-Dist` entries, many of which are not in nixpkgs (nvidia-cutlass-dsl, quack-kernels, etc.); all dependency metadata is stripped and needed deps are explicitly provided via `propagatedBuildInputs`
 - **Shared helpers in `.flox/pkgs/lib/`** — CPU ISA definitions, custom PyTorch builder, and individual CUDA package expressions are shared across all variant files
 
 ## Package Structure
@@ -187,9 +187,10 @@ sglang-python312-cuda12_8-sm90-avx512        (variant entry point)
 │   │   └── custom torch
 │   ├── flashinfer-python 0.6.5               (pure Python frontend)
 │   │   ├── flashinfer-cubin 0.6.5            (9262 .cubin files, pure Python)
-│   │   └── flashinfer-jit-cache 0.6.5+cu128  (compiled .so, autoPatchelf)
-│   │       ├── cuda_cudart, cuda_nvrtc, libcublas
-│   │       └── custom torch
+│   │   ├── flashinfer-jit-cache 0.6.5+cu128  (compiled .so, autoPatchelf)
+│   │   │   ├── cuda_cudart, cuda_nvrtc, libcublas
+│   │   │   └── custom torch
+│   │   └── apache-tvm-ffi 0.1.9             (JIT kernel compiler, autoPatchelf)
 │   ├── xgrammar 0.1.27                       (C++ only, libstdc++, no CUDA)
 │   └── ~30 nixpkgs Python deps               (transformers, fastapi, etc.)
 └── custom torch (PyTorch 2.9.1 from source)
@@ -209,10 +210,10 @@ sglang-python312-cuda12_8-sm90-avx512        (variant entry point)
 - **SM61 (Pascal)**: Uses `USE_CUDNN=0` — cuDNN 9.11+ dropped support for SM < 7.5
 - **"all" variants**: Cover SM75–SM120 (7 architectures). SM61 is excluded to preserve cuDNN support. Build time is ~7x longer than single-SM variants
 - **sgl-kernel**: `autoPatchelfHook` needs `cuda_nvrtc` and `numactl` — discovered via runtime audit of `libnvrtc.so.12` and `libnuma.so.1` dependencies in the mscclpp and sm90/common_ops shared objects
-- **FlashInfer**: Split into three wheels — `flashinfer-cubin` (9262 `.cubin` files, pure Python), `flashinfer-jit-cache` (compiled `.so` extensions, needs autoPatchelf against CUDA runtime), and `flashinfer-python` (pure Python frontend that propagates both)
-- **FlashInfer JIT at runtime**: FlashInfer may attempt JIT compilation at runtime; set `FLASHINFER_JIT_DIR` to a writable path since the Nix store is read-only
+- **FlashInfer**: Split into three wheels — `flashinfer-cubin` (9262 `.cubin` files, pure Python), `flashinfer-jit-cache` (compiled `.so` extensions, needs autoPatchelf against CUDA runtime), and `flashinfer-python` (pure Python frontend that propagates both). Also requires `apache-tvm-ffi` (JIT kernel compiler used by sgl-kernel at runtime) and `filelock`
+- **FlashInfer/sgl-kernel JIT at runtime**: Both FlashInfer and sgl-kernel use JIT compilation at runtime. The runtime environment must export `CUDA_HOME` (for nvcc), `CPATH` (for CUDA headers like `cuda_runtime.h`, `nv/target`), and `LIBRARY_PATH` (for `libcudart.so` linking). Set `FLASHINFER_JIT_DIR` to a writable path since the Nix store is read-only
 - **xgrammar**: C++ extensions only (`libstdc++`), no CUDA linkage at the `.so` level — simpler autoPatchelf with just `stdenv.cc.cc.lib`
-- **pythonRemoveDeps**: SGLang declares ~60 dependencies, many not available in nixpkgs (apache-tvm-ffi, nvidia-cutlass-dsl, quack-kernels, openai-harmony, etc.); all `Requires-Dist` metadata is stripped and the ~30 deps needed for core LLM serving are explicitly listed in `propagatedBuildInputs`
+- **pythonRemoveDeps**: SGLang declares ~60 dependencies, many not available in nixpkgs (nvidia-cutlass-dsl, quack-kernels, etc.); all `Requires-Dist` metadata is stripped and the ~35 deps needed for core LLM serving are explicitly listed in `propagatedBuildInputs`
 - **Ninja setup hook hijacking**: Torch's Python ninja package installs a Nix setup hook that hijacks `buildPhase` for downstream wheel packages. All wheel packages (sglang, sgl-kernel, FlashInfer cubin/jit-cache, xgrammar) use `dontUseNinjaBuild = true`, `dontUseNinjaInstall = true`, and `dontUseCmakeConfigure = true` to prevent this
 - **pythonImportsCheck disabled**: Disabled for sgl-kernel (needs `libcuda.so.1` at import time), flashinfer-jit-cache and flashinfer-python (need `libcuda.so.1`), and xgrammar (transitive deps `transformers`/`pydantic` not available during the build check phase). flashinfer-cubin and sglang retain their import checks
 

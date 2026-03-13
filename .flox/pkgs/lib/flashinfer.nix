@@ -5,6 +5,25 @@
 { python3, cudaPackages, autoPatchelfHook, stdenv }:
 
 let
+  apache-tvm-ffi = python3.pkgs.buildPythonPackage rec {
+    pname = "apache-tvm-ffi";
+    version = "0.1.9";
+    format = "wheel";
+
+    src = builtins.fetchurl {
+      url = "https://files.pythonhosted.org/packages/c6/dd/2bab4c6cd86257dbf99e93452a1af833113f8dc3e25a25579f6e4e4c8a94/apache_tvm_ffi-0.1.9-cp312-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl";
+      sha256 = "sha256-KCQTcZNOqK8Q1QZwh7oSKevd3teywC0zoljsKpbfjEY=";
+    };
+
+    nativeBuildInputs = [ autoPatchelfHook ];
+    buildInputs = [ stdenv.cc.cc.lib ];
+
+    propagatedBuildInputs = [ python3.pkgs.typing-extensions ];
+
+    # Import pulls in many transitive deps; provided at runtime via sglang closure.
+    pythonImportsCheck = [ ];
+  };
+
   flashinfer-cubin = python3.pkgs.buildPythonPackage rec {
     pname = "flashinfer-cubin";
     version = "0.6.5";
@@ -76,8 +95,10 @@ let
     propagatedBuildInputs = [
       flashinfer-cubin
       flashinfer-jit-cache
+      apache-tvm-ffi
       python3.pkgs.torch
       python3.pkgs.numpy
+      python3.pkgs.filelock
     ];
 
     # Import requires CUDA runtime (libcuda.so.1) — not available in build sandbox.

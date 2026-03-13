@@ -2,7 +2,7 @@
 # Pure Python wheel that composes all custom CUDA packages + nixpkgs dependencies.
 #
 # SGLang declares ~60 Requires-Dist entries, many of which are not in nixpkgs
-# (apache-tvm-ffi, nvidia-cutlass-dsl, quack-kernels, openai-harmony, etc.).
+# (nvidia-cutlass-dsl, quack-kernels, etc.).
 # We use pythonRemoveDeps to strip ALL dependency metadata from the wheel, then
 # explicitly provide the deps needed for core LLM serving in propagatedBuildInputs.
 { python3, sgl-kernel, flashinfer-python, xgrammar }:
@@ -90,6 +90,11 @@ python3.pkgs.buildPythonPackage rec {
     python3.pkgs.ipython
     python3.pkgs.ninja
     python3.pkgs.nvidia-ml-py
+    python3.pkgs.gguf
+    python3.pkgs.cuda-bindings
+
+    # ── OpenAI Responses API ─────────────────────────────────────────
+    python3.pkgs.openai-harmony
   ];
 
   pythonImportsCheck = [ "sglang" ];
